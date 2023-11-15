@@ -10,4 +10,9 @@ export class TokenController {
   public async createToken(phoneNumber) {
     return await this.tokenService.createToken(phoneNumber);
   }
+
+  @MessagePattern({ cmd: 'validate_jwt_payload' })
+  public async validateJwtPayload(payload) {
+    return await this.tokenService.validateJwtPayload(payload);
+  }
 }

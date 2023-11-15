@@ -13,6 +13,9 @@ export class CustomerService {
       ) || null
     );
   }
+  async findOneById(id: number): Promise<CustomerEntity | null> {
+    return this.customers[id - 1];
+  }
   hashData(token: string) {
     return bcrypt.hash(token, 10);
   }

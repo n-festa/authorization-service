@@ -113,7 +113,7 @@ export class OtpService {
     const tokenData = await this.tokenService.createToken(user);
 
     //update refresh token to user db
-    this.updateRefreshToken(user, tokenData.refresh_token);
+    this.tokenService.updateRefreshToken(user, tokenData.refresh_token);
 
     result.statusCode = 200;
     result.message = tokenData;
@@ -182,17 +182,5 @@ export class OtpService {
     }
     console.log('otpBank', this.otpBank);
     return this.otpBank;
-  }
-  private async updateRefreshToken(user: GenericUser, refToken: string) {
-    switch (user.userType) {
-      case 'customer':
-        await this.customerService.updateRefreshTokenByPhone(
-          user.userName,
-          refToken,
-        );
-        break;
-      case 'admin':
-        break;
-    }
   }
 }
