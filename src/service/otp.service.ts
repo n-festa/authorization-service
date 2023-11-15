@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { sendOTPSMS } from 'src/libs/thirpartyAPI.lib';
 import { GeneralResponse } from 'src/dto/GeneralResponse.dto';
+import { TokenService } from './token.service';
+import { GenericUser } from 'src/type';
 
 interface OtpType {
   phoneNumber: string;
@@ -16,6 +18,7 @@ interface VanillaOtpType {
 
 @Injectable()
 export class OtpService {
+  constructor(private readonly tokenService: TokenService) {}
   private readonly otpBank: OtpType[] = [];
   async requestOTP(phoneNumber: string): Promise<GeneralResponse> {
     let result = new GeneralResponse(200, '');
@@ -59,7 +62,7 @@ export class OtpService {
     }
   }
 
-  authenticateOTP(phoneNumber: string, inputOTP: string) {
+  async authenticateOTP(phoneNumber: string, inputOTP: string) {
     let result = new GeneralResponse(200, '');
 
     // Lấy currentOTP mới nhất của phoneNumber
@@ -88,12 +91,23 @@ export class OtpService {
     //Clear Otp in otpBank
     this.deleteOtpBankByPhoneNumber(phoneNumber);
 
-    result.statusCode = 200;
-    result.message = {
-      phoneNumber: phoneNumber,
-      otpCode: inputOTP,
-      message: 'Xác thực thành công',
+    //Check if there is any customer exists with the phone number
+    //TODO
+
+    //Create token for the customer
+    const user: GenericUser = {
+      userType: 'customer',
+      userId: '1', //will update later
+      userName: phoneNumber,
+      permissions: 'customer',
     };
+    const tokenData = await this.tokenService.createToken(user);
+
+    //update refresh token to user db
+    //TODO
+
+    result.statusCode = 200;
+    result.message = tokenData;
     return result;
   }
 

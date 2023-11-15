@@ -1,22 +1,29 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { JwtPayload } from 'jsonwebtoken';
+import { GenericUser } from 'src/type';
+
+const JWT_SECRET = {
+  access_token: 'access_token_secret',
+  refresh_token: 'refresh_token_secret',
+};
 
 @Injectable()
 export class TokenService {
   constructor(private readonly jwtService: JwtService) {}
-  public async createToken(phoneNumber: string) {
+  public async createToken(user: GenericUser) {
     const data: JwtPayload = {
-      phoneNumber: phoneNumber,
+      ...user,
+      sub: user.userId,
     };
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(data, {
-        secret: 'access_token_secret',
-        expiresIn: '1d',
+        secret: JWT_SECRET.access_token,
+        expiresIn: '1h',
       }),
       this.jwtService.signAsync(data, {
-        secret: 'refresh_token_secret',
-        expiresIn: '1d',
+        secret: JWT_SECRET.refresh_token,
+        expiresIn: '30d',
       }),
     ]);
     return {
@@ -25,4 +32,7 @@ export class TokenService {
       refresh_token: refreshToken,
     };
   }
+  // private async updateRefreshToken(email: string, refToken: string) {
+  //   await this.usersService.updateRefreshTokenByEmail(email, refToken);
+  // }
 }

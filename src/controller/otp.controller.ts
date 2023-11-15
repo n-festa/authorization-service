@@ -12,7 +12,10 @@ export class OtpController {
     return await this.otpService.requestOTP(phoneNumber);
   }
   @MessagePattern({ cmd: 'authenticate_otp' })
-  public authenticateOTP(data: AuthenOtpRequest) {
-    return this.otpService.authenticateOTP(data.phoneNumber, data.inputOTP);
+  public async authenticateOTP(data: AuthenOtpRequest) {
+    return await this.otpService.authenticateOTP(
+      data.phoneNumber,
+      data.inputOTP,
+    );
   }
 }
