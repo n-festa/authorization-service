@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { sendOTPSMS } from 'src/libs/thirpartyAPI.lib';
+import { GeneralResponse } from 'src/dto/GeneralResponse.dto';
 
 interface OtpType {
   phoneNumber: string;
@@ -16,11 +17,8 @@ interface VanillaOtpType {
 @Injectable()
 export class OtpService {
   private readonly otpBank: OtpType[] = [];
-  async requestOTP(phoneNumber: string) {
-    let result: any = {
-      statusCode: 200,
-      message: '',
-    };
+  async requestOTP(phoneNumber: string): Promise<GeneralResponse> {
+    let result = new GeneralResponse(200, '');
 
     if (!phoneNumber) {
       result.statusCode = 400;
@@ -39,13 +37,13 @@ export class OtpService {
     const otpInfo: VanillaOtpType = this.createOTP();
 
     //Lưu thông tin OTP vừa tạo vào otpBank
-    const otp = {
+    const otp: OtpType = {
       phoneNumber: phoneNumber,
       otpCode: otpInfo.OTP,
       created_at: otpInfo.created_at,
       expired_at: otpInfo.expired_at,
     };
-    this.otpBank.push(otp);
+    const otpBank = this.updateOtpBank(otp);
 
     // //Gửi SMS kèm OTP cho phoneNumber
     try {
@@ -60,6 +58,45 @@ export class OtpService {
       return result;
     }
   }
+
+  authenticateOTP(phoneNumber: string, inputOTP: string) {
+    let result = new GeneralResponse(200, '');
+
+    // Lấy currentOTP mới nhất của phoneNumber
+    const currentOTP = this.getCurrentOTP(phoneNumber);
+    if (currentOTP == null) {
+      result.statusCode = 400;
+      result.message = 'OTP không tồn tại';
+      return result;
+    }
+
+    //Kiểm tra tính hiệu lực của current OTP
+    const currentTime = Date.now();
+    if (currentTime > currentOTP.expired_at) {
+      result.statusCode = 400;
+      result.message = 'OTP quá thời gian hiệu lực';
+      return result;
+    }
+
+    //So sánh OTP gửi lên với currentOTP
+    if (currentOTP.otpCode != inputOTP) {
+      result.statusCode = 400;
+      result.message = 'Sai OTP';
+      return result;
+    }
+
+    //Clear Otp in otpBank
+    this.deleteOtpBankByPhoneNumber(phoneNumber);
+
+    result.statusCode = 200;
+    result.message = {
+      phoneNumber: phoneNumber,
+      otpCode: inputOTP,
+      message: 'Xác thực thành công',
+    };
+    return result;
+  }
+
   //validatePhone
   validatePhone(phoneNumber) {
     //get only number from phoneNumber
@@ -87,5 +124,40 @@ export class OtpService {
     result.expired_at = currentTimestamp + validTimeForOTP; //miliseconds
 
     return result;
+  }
+
+  getCurrentOTP(phoneNumber: string): OtpType {
+    const currentOTP = this.otpBank.find(
+      (otp) => otp.phoneNumber == phoneNumber,
+    );
+    if (currentOTP) return currentOTP;
+    return null; //if not found
+  }
+
+  updateOtpBank(otp: OtpType) {
+    if (this.getCurrentOTP(otp.phoneNumber) == null) {
+      this.otpBank.push(otp);
+      console.log('otpBank', this.otpBank);
+      return this.otpBank;
+    }
+    //udpate otpBank with new otp
+    for (let i = 0; i < this.otpBank.length; i++) {
+      if (this.otpBank[i].phoneNumber == otp.phoneNumber) {
+        this.otpBank[i] = otp;
+        break;
+      }
+    }
+    console.log('otpBank', this.otpBank);
+    return this.otpBank;
+  }
+  deleteOtpBankByPhoneNumber(phoneNumber: string) {
+    for (let i = 0; i < this.otpBank.length; i++) {
+      if (this.otpBank[i].phoneNumber == phoneNumber) {
+        this.otpBank.splice(i, 1);
+        break;
+      }
+    }
+    console.log('otpBank', this.otpBank);
+    return this.otpBank;
   }
 }
