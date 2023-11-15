@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { sendOTPSMS } from 'src/libs/thirpartyAPI.lib';
-import { GeneralResponse } from 'src/dto/GeneralResponse.dto';
+import { GeneralResponse } from 'src/dto/general-response.dto';
 import { TokenService } from './token.service';
+import { CustomerService } from './customer.service';
 import { GenericUser } from 'src/type';
 
 interface OtpType {
@@ -18,7 +19,10 @@ interface VanillaOtpType {
 
 @Injectable()
 export class OtpService {
-  constructor(private readonly tokenService: TokenService) {}
+  constructor(
+    private readonly tokenService: TokenService,
+    private readonly customerService: CustomerService,
+  ) {}
   private readonly otpBank: OtpType[] = [];
   async requestOTP(phoneNumber: string): Promise<GeneralResponse> {
     let result = new GeneralResponse(200, '');
@@ -46,7 +50,7 @@ export class OtpService {
       created_at: otpInfo.created_at,
       expired_at: otpInfo.expired_at,
     };
-    const otpBank = this.updateOtpBank(otp);
+    this.updateOtpBank(otp);
 
     // //Gửi SMS kèm OTP cho phoneNumber
     try {
@@ -93,6 +97,11 @@ export class OtpService {
 
     //Check if there is any customer exists with the phone number
     //TODO
+    let customer = await this.customerService.findOneByPhone(phoneNumber);
+    if (!customer) {
+      //create new customer if not exists
+      customer = this.customerService.createCustomer(phoneNumber);
+    }
 
     //Create token for the customer
     const user: GenericUser = {
@@ -104,7 +113,7 @@ export class OtpService {
     const tokenData = await this.tokenService.createToken(user);
 
     //update refresh token to user db
-    //TODO
+    this.updateRefreshToken(user, tokenData.refresh_token);
 
     result.statusCode = 200;
     result.message = tokenData;
@@ -173,5 +182,17 @@ export class OtpService {
     }
     console.log('otpBank', this.otpBank);
     return this.otpBank;
+  }
+  private async updateRefreshToken(user: GenericUser, refToken: string) {
+    switch (user.userType) {
+      case 'customer':
+        await this.customerService.updateRefreshTokenByPhone(
+          user.userName,
+          refToken,
+        );
+        break;
+      case 'admin':
+        break;
+    }
   }
 }

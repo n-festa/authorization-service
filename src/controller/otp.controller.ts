@@ -1,7 +1,7 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern } from '@nestjs/microservices';
 import { OtpService } from 'src/service/otp.service';
-import { AuthenOtpRequest } from 'src/dto/AuthenOtpRequest.dto';
+import { AuthenOtpRequest } from 'src/dto/authen-otp-request.dto';
 
 @Controller()
 export class OtpController {
