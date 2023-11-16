@@ -1,13 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { JwtPayload } from 'jsonwebtoken';
+import * as bcrypt from 'bcrypt';
+import * as MyLib from 'src/libs';
 import { GenericUser } from 'src/type';
 import { CustomerService } from './customer.service';
-
-const JWT_SECRET = {
-  access_token: 'access_token_secret',
-  refresh_token: 'refresh_token_secret',
-};
+import { Role, UserType } from 'src/enum';
+import { GeneralResponse } from 'src/dto/general-response.dto';
+import {
+  JWT_LIFETIME_ACCESS_TOKEN,
+  JWT_LIFETIME_REFRESH_TOKEN,
+  JWT_SECRET_ACCESS_TOKEN,
+  JWT_SECRET_REFRESH_TOKEN,
+} from 'src/app.constants';
 
 @Injectable()
 export class TokenService {
@@ -18,16 +23,15 @@ export class TokenService {
   public async createToken(user: GenericUser) {
     const data: JwtPayload = {
       ...user,
-      sub: user.userId,
     };
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(data, {
-        secret: JWT_SECRET.access_token,
-        expiresIn: '1h',
+        secret: JWT_SECRET_ACCESS_TOKEN,
+        expiresIn: JWT_LIFETIME_ACCESS_TOKEN,
       }),
       this.jwtService.signAsync(data, {
-        secret: JWT_SECRET.refresh_token,
-        expiresIn: '30d',
+        secret: JWT_SECRET_REFRESH_TOKEN,
+        expiresIn: JWT_LIFETIME_REFRESH_TOKEN,
       }),
     ]);
     return {
@@ -38,22 +42,65 @@ export class TokenService {
   }
   async updateRefreshToken(user: GenericUser, refToken: string) {
     switch (user.userType) {
-      case 'customer':
+      case UserType.Customer:
         await this.customerService.updateRefreshTokenByPhone(
           user.userName,
           refToken,
         );
         break;
-      case 'admin':
+      case UserType.Admin:
+        break;
+      case UserType.RestaurantOwner:
         break;
     }
   }
   async validateJwtPayload(payload: JwtPayload) {
     switch (payload.userType) {
-      case 'customer':
-        return await this.customerService.findOneById(parseInt(payload.sub));
-      case 'admin':
+      case UserType.Customer:
+        return await this.customerService.findOneById(parseInt(payload.userId));
+      case UserType.Admin:
         break;
+      case UserType.RestaurantOwner:
+        break;
+    }
+  }
+  public async refreshToken(user: any) {
+    const { userId, refresh_token, userType } = user;
+    let result = new GeneralResponse(200, '');
+
+    if (userType == UserType.Customer) {
+      const customer = await this.customerService.findOneById(parseInt(userId));
+      if (!customer) {
+        result.statusCode = 403;
+        result.message = 'User not found';
+        return result;
+      }
+      // const isMatchFound = bcrypt.compareSync(
+      //   refresh_token,
+      //   customer.refresh_token,
+      // );
+      const isMatchFound = MyLib.compareHashString(
+        refresh_token,
+        customer.refresh_token,
+      );
+
+      if (!isMatchFound) {
+        result.statusCode = 403;
+        result.message = 'The refresh token is incorrect';
+        return result;
+      }
+      const user: GenericUser = {
+        userType: UserType.Customer,
+        userId: customer.customer_id,
+        userName: customer.phone_number,
+        permissions: Role.Customer,
+      };
+      const tokenData = await this.createToken(user);
+      this.updateRefreshToken(user, tokenData.refresh_token);
+
+      result.statusCode = 200;
+      result.message = tokenData;
+      return result;
     }
   }
 }

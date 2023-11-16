@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CustomerEntity } from 'src/entity/customer.entity';
 import * as bcrypt from 'bcrypt';
+import * as MyLib from 'src/libs';
 
 @Injectable()
 export class CustomerService {
@@ -14,10 +15,11 @@ export class CustomerService {
     );
   }
   async findOneById(id: number): Promise<CustomerEntity | null> {
-    return this.customers[id - 1];
+    return this.customers[id - 1] || null;
   }
-  hashData(token: string) {
-    return bcrypt.hash(token, 10);
+  async hashData(token: string) {
+    // return await bcrypt.hash(token, 10);
+    return MyLib.hash(token);
   }
   async updateRefreshTokenByPhone(phoneNumber: string, refToken: string) {
     if (!refToken) {
@@ -26,7 +28,9 @@ export class CustomerService {
       //save customer
       return this.saveCustomer(saveEntity);
     }
+
     const hashedToken = await this.hashData(refToken);
+
     const customer = await this.findOneByPhone(phoneNumber);
     const saveEntity = { ...customer, refresh_token: hashedToken };
     //save customer
@@ -39,7 +43,6 @@ export class CustomerService {
         break;
       }
     }
-    console.log('customers', this.customers);
   }
   createCustomer(phoneNumber: string): CustomerEntity {
     const customer = new CustomerEntity();

@@ -4,6 +4,7 @@ import { GeneralResponse } from 'src/dto/general-response.dto';
 import { TokenService } from './token.service';
 import { CustomerService } from './customer.service';
 import { GenericUser } from 'src/type';
+import { Role, UserType } from 'src/enum';
 
 interface OtpType {
   phoneNumber: string;
@@ -105,15 +106,15 @@ export class OtpService {
 
     //Create token for the customer
     const user: GenericUser = {
-      userType: 'customer',
-      userId: '1', //will update later
-      userName: phoneNumber,
-      permissions: 'customer',
+      userType: UserType.Customer,
+      userId: customer.customer_id,
+      userName: customer.phone_number,
+      permissions: Role.Customer,
     };
     const tokenData = await this.tokenService.createToken(user);
 
     //update refresh token to user db
-    this.tokenService.updateRefreshToken(user, tokenData.refresh_token);
+    await this.tokenService.updateRefreshToken(user, tokenData.refresh_token);
 
     result.statusCode = 200;
     result.message = tokenData;
