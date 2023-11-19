@@ -1,6 +1,6 @@
 export interface GenericUser {
   userType: string;
-  userId: string;
+  userId: number;
   userName: string;
   permissions: string;
 }

@@ -5,6 +5,7 @@ import { TokenService } from './token.service';
 import { CustomerService } from './customer.service';
 import { GenericUser } from 'src/type';
 import { Role, UserType } from 'src/enum';
+import { Customer } from 'src/entity/customer.entity';
 
 interface OtpType {
   phoneNumber: string;
@@ -69,56 +70,57 @@ export class OtpService {
 
   async authenticateOTP(phoneNumber: string, inputOTP: string) {
     let result = new GeneralResponse(200, '');
+    try {
+      // Lấy currentOTP mới nhất của phoneNumber
+      const currentOTP = this.getCurrentOTP(phoneNumber);
+      if (currentOTP == null) {
+        result.statusCode = 400;
+        result.message = 'OTP không tồn tại';
+        return result;
+      }
 
-    // Lấy currentOTP mới nhất của phoneNumber
-    const currentOTP = this.getCurrentOTP(phoneNumber);
-    if (currentOTP == null) {
-      result.statusCode = 400;
-      result.message = 'OTP không tồn tại';
+      //Kiểm tra tính hiệu lực của current OTP
+      const currentTime = Date.now();
+      if (currentTime > currentOTP.expired_at) {
+        result.statusCode = 400;
+        result.message = 'OTP quá thời gian hiệu lực';
+        return result;
+      }
+
+      //So sánh OTP gửi lên với currentOTP
+      if (currentOTP.otpCode != inputOTP) {
+        result.statusCode = 400;
+        result.message = 'Sai OTP';
+        return result;
+      }
+
+      //Clear Otp in otpBank
+      this.deleteOtpBankByPhoneNumber(phoneNumber);
+
+      //create customer if it does not exist
+      const customer = await this.customerService.createCustomer(phoneNumber);
+
+      //Create token for the customer
+      const user: GenericUser = {
+        userType: UserType.Customer,
+        userId: customer.customer_id,
+        userName: customer.phone_number,
+        permissions: Role.Customer,
+      };
+      const tokenData = await this.tokenService.createToken(user);
+
+      //update refresh token to user db
+      await this.tokenService.updateRefreshToken(user, tokenData.refresh_token);
+
+      result.statusCode = 200;
+      result.message = tokenData;
+      return result;
+    } catch (error) {
+      console.log(error);
+      result.statusCode = 500;
+      result.message = error.toString();
       return result;
     }
-
-    //Kiểm tra tính hiệu lực của current OTP
-    const currentTime = Date.now();
-    if (currentTime > currentOTP.expired_at) {
-      result.statusCode = 400;
-      result.message = 'OTP quá thời gian hiệu lực';
-      return result;
-    }
-
-    //So sánh OTP gửi lên với currentOTP
-    if (currentOTP.otpCode != inputOTP) {
-      result.statusCode = 400;
-      result.message = 'Sai OTP';
-      return result;
-    }
-
-    //Clear Otp in otpBank
-    this.deleteOtpBankByPhoneNumber(phoneNumber);
-
-    //Check if there is any customer exists with the phone number
-    //TODO
-    let customer = await this.customerService.findOneByPhone(phoneNumber);
-    if (!customer) {
-      //create new customer if not exists
-      customer = this.customerService.createCustomer(phoneNumber);
-    }
-
-    //Create token for the customer
-    const user: GenericUser = {
-      userType: UserType.Customer,
-      userId: customer.customer_id,
-      userName: customer.phone_number,
-      permissions: Role.Customer,
-    };
-    const tokenData = await this.tokenService.createToken(user);
-
-    //update refresh token to user db
-    await this.tokenService.updateRefreshToken(user, tokenData.refresh_token);
-
-    result.statusCode = 200;
-    result.message = tokenData;
-    return result;
   }
 
   //validatePhone

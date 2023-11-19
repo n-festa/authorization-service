@@ -1,21 +1,22 @@
 import { Injectable } from '@nestjs/common';
-import { CustomerEntity } from 'src/entity/customer.entity';
+import { Customer } from 'src/entity/customer.entity';
 import * as bcrypt from 'bcrypt';
 import * as MyLib from 'src/libs';
-
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 @Injectable()
 export class CustomerService {
-  private readonly customers: CustomerEntity[] = [];
-  async findOneByPhone(phoneNumber: string): Promise<CustomerEntity | null> {
-    //find customer by phone number
-    return (
-      this.customers.find(
-        (customer) => customer.phone_number === phoneNumber,
-      ) || null
-    );
+  constructor(
+    @InjectRepository(Customer) private customerRepo: Repository<Customer>,
+  ) {}
+
+  async findOneByPhone(phoneNumber: string): Promise<Customer | null> {
+    return await this.customerRepo.findOneBy({ phone_number: phoneNumber });
   }
-  async findOneById(id: number): Promise<CustomerEntity | null> {
-    return this.customers[id - 1] || null;
+  async findOneById(id: number): Promise<Customer | null> {
+    return await this.customerRepo.findOneBy({
+      customer_id: id,
+    });
   }
   async hashData(token: string) {
     // return await bcrypt.hash(token, 10);
@@ -24,31 +25,28 @@ export class CustomerService {
   async updateRefreshTokenByPhone(phoneNumber: string, refToken: string) {
     if (!refToken) {
       const customer = await this.findOneByPhone(phoneNumber);
-      const saveEntity = { ...customer, refresh_token: null };
-      //save customer
-      return this.saveCustomer(saveEntity);
+      await this.customerRepo.update(customer.customer_id, {
+        refresh_token: null,
+      });
     }
-
     const hashedToken = await this.hashData(refToken);
-
     const customer = await this.findOneByPhone(phoneNumber);
-    const saveEntity = { ...customer, refresh_token: hashedToken };
+
     //save customer
-    return this.saveCustomer(saveEntity);
+    return await this.customerRepo.update(customer.customer_id, {
+      refresh_token: hashedToken,
+    });
   }
-  saveCustomer(saveEntity: CustomerEntity) {
-    for (let i = 0; i < this.customers.length; i++) {
-      if (this.customers[i].phone_number == saveEntity.phone_number) {
-        this.customers[i] = saveEntity;
-        break;
-      }
+  async createCustomer(phoneNumber: string): Promise<Customer> {
+    //check if customer does exist
+    const existingCustomer = await this.findOneByPhone(phoneNumber);
+    if (existingCustomer) {
+      return existingCustomer;
     }
-  }
-  createCustomer(phoneNumber: string): CustomerEntity {
-    const customer = new CustomerEntity();
+
+    //if customer does not exit, create new customer with phoneNumber
+    const customer = new Customer();
     customer.phone_number = phoneNumber;
-    customer.customer_id = (this.customers.length + 1).toString();
-    this.customers.push(customer);
-    return customer;
+    return await this.customerRepo.save(customer);
   }
 }

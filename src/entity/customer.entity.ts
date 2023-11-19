@@ -1,38 +1,53 @@
-export class CustomerEntity {
-  // @PrimaryGeneratedColumn("uuid")
-  public customer_id!: string;
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 
-  // @Column({ type: "varchar", length: 25, select: true, unique: true })
-  public phone_number!: string;
+@Entity('Customer')
+export class Customer {
+  @PrimaryGeneratedColumn()
+  public customer_id: number;
 
-  // @Column({ type: 'varchar', length: 255 })
-  public name!: string;
+  @Column({ type: 'varchar', length: 25, nullable: false, unique: true })
+  public phone_number: string;
 
-  // @Column({ type: 'varchar', length: 255 })
-  public email!: string;
+  @Column({ type: 'varchar', length: 255, nullable: true, unique: false })
+  public name: string;
 
-  // @Column({ type: 'date' })
+  @Column({ type: 'varchar', length: 255, nullable: true, unique: false })
+  public email: string;
+
+  @Column({ type: 'date', nullable: true, unique: false })
   public birthday!: Date;
 
-  // @Column({ type: 'char', length: 1 })
-  public sex!: string;
+  @Column({ type: 'char', length: 1, nullable: true, unique: false })
+  public sex: string;
 
-  // @Column({ type: 'int' })
+  @Column({ type: 'int', nullable: true, unique: false })
   public profile_image!: number;
 
-  // @Column({ type: 'char', length: 1 })
+  @Column({
+    type: 'char',
+    length: 1,
+    nullable: false,
+    unique: false,
+    default: '0',
+  })
   public is_active!: string;
 
-  // @Column({ type: 'int' })
+  @Column({ type: 'int', nullable: true, unique: false })
   public health_info_id!: number;
 
-  // @Column({ type: 'varchar',length:255, nullable: true, select: false })
+  @Column({ type: 'varchar', length: 255, nullable: true, unique: false })
   public refresh_token!: string;
 
-  //   @CreateDateColumn({
-  //     type: 'timestamptz',
-  //     default: () => 'CURRENT_TIMESTAMP',
-  //     select: true,
-  //   })
-  public created_at!: Date;
+  @CreateDateColumn({
+    type: 'datetime',
+    nullable: false,
+    unique: false,
+    default: () => 'CURRENT_TIMESTAMP',
+  })
+  public created_at: Date;
 }

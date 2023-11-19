@@ -57,7 +57,7 @@ export class TokenService {
   async validateJwtPayload(payload: JwtPayload) {
     switch (payload.userType) {
       case UserType.Customer:
-        return await this.customerService.findOneById(parseInt(payload.userId));
+        return await this.customerService.findOneById(payload.userId);
       case UserType.Admin:
         break;
       case UserType.RestaurantOwner:
@@ -69,7 +69,7 @@ export class TokenService {
     let result = new GeneralResponse(200, '');
 
     if (userType == UserType.Customer) {
-      const customer = await this.customerService.findOneById(parseInt(userId));
+      const customer = await this.customerService.findOneById(userId);
       if (!customer) {
         result.statusCode = 403;
         result.message = 'User not found';
