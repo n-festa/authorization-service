@@ -8,9 +8,10 @@ export class OtpController {
   constructor(private readonly otpService: OtpService) {}
 
   @MessagePattern({ cmd: 'request_otp' })
-  public async requestOTP(phoneNumber) {
+  public async requestOTP(phoneNumber: string) {
     return await this.otpService.requestOTP(phoneNumber);
   }
+
   @MessagePattern({ cmd: 'authenticate_otp' })
   public async authenticateOTP(data: AuthenOtpRequest) {
     return await this.otpService.authenticateOTP(

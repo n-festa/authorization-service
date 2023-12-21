@@ -1,11 +1,11 @@
-import { Injectable } from '@nestjs/common';
-import { sendOTPSMS } from 'src/libs/thirpartyAPI.lib';
+import { Inject, Injectable } from '@nestjs/common';
 import { GeneralResponse } from 'src/dto/general-response.dto';
 import { TokenService } from './token.service';
 import { CustomerService } from './customer.service';
 import { GenericUser } from 'src/type';
 import { Role, UserType } from 'src/enum';
-import { Customer } from 'src/entity/customer.entity';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 
 interface OtpType {
   phoneNumber: string;
@@ -24,25 +24,21 @@ export class OtpService {
   constructor(
     private readonly tokenService: TokenService,
     private readonly customerService: CustomerService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
-  private readonly otpBank: OtpType[] = [];
+
+  private readonly OTP_TTL_IN_MILLISECOND: number = 2 * 60 * 1000;
   async requestOTP(phoneNumber: string): Promise<GeneralResponse> {
-    let result = new GeneralResponse(200, '');
+    const result = new GeneralResponse(200, '');
 
     if (!phoneNumber) {
+      //TO DO: to define a good schema/pipeline that can handle and return result/error to the api gateway
       result.statusCode = 400;
-      result.message = 'phoneNumber is required';
+      result.message = 'PhoneNumber is required';
       return result;
     }
 
-    //validate phone format
-    if (!this.validatePhone(phoneNumber)) {
-      result.statusCode = 400;
-      result.message = 'phoneNumber is invalid';
-      return result;
-    }
-
-    //Tạo OTP cho phoneNumber
+    // Generate OTP
     const otpInfo: VanillaOtpType = this.createOTP();
 
     //Lưu thông tin OTP vừa tạo vào otpBank
@@ -52,9 +48,10 @@ export class OtpService {
       created_at: otpInfo.created_at,
       expired_at: otpInfo.expired_at,
     };
-    this.updateOtpBank(otp);
 
-    // //Gửi SMS kèm OTP cho phoneNumber
+    await this.updateOtpBank(otp);
+
+    // Sms sending
     try {
       // const response = await sendOTPSMS(phoneNumber, otpInfo.OTP);
       const response = otp;
@@ -69,33 +66,18 @@ export class OtpService {
   }
 
   async authenticateOTP(phoneNumber: string, inputOTP: string) {
-    let result = new GeneralResponse(200, '');
+    const result = new GeneralResponse(200, '');
     try {
-      // Lấy currentOTP mới nhất của phoneNumber
-      const currentOTP = this.getCurrentOTP(phoneNumber);
-      if (currentOTP == null) {
+      const currentOTP = await this.cacheManager.get(phoneNumber);
+
+      if (!currentOTP || currentOTP !== inputOTP) {
         result.statusCode = 400;
-        result.message = 'OTP không tồn tại';
+        result.message = 'OTP is invalid or expired';
         return result;
       }
 
-      //Kiểm tra tính hiệu lực của current OTP
-      const currentTime = Date.now();
-      if (currentTime > currentOTP.expired_at) {
-        result.statusCode = 400;
-        result.message = 'OTP quá thời gian hiệu lực';
-        return result;
-      }
-
-      //So sánh OTP gửi lên với currentOTP
-      if (currentOTP.otpCode != inputOTP) {
-        result.statusCode = 400;
-        result.message = 'Sai OTP';
-        return result;
-      }
-
-      //Clear Otp in otpBank
-      this.deleteOtpBankByPhoneNumber(phoneNumber);
+      //Clear Otp in cache
+      await this.deleteOtpBankByPhoneNumber(phoneNumber);
 
       //create customer if it does not exist
       const customer = await this.customerService.createCustomer(phoneNumber);
@@ -124,7 +106,7 @@ export class OtpService {
   }
 
   //validatePhone
-  validatePhone(phoneNumber) {
+  validatePhone(phoneNumber: string) {
     //get only number from phoneNumber
     const validateHoneNumber = phoneNumber.replace(/\D/g, '');
 
@@ -134,10 +116,10 @@ export class OtpService {
   }
 
   createOTP(): VanillaOtpType {
-    const validTimeForOTP = 15 * 60 * 1000; //2 minutes
     const possible = '0123456789';
 
-    let result: VanillaOtpType = { OTP: '', created_at: 0, expired_at: 0 };
+    const result: VanillaOtpType = { OTP: '', created_at: 0, expired_at: 0 };
+
     //generate OTP
     for (let i = 0; i < 6; i++) {
       result.OTP += possible.charAt(
@@ -146,44 +128,25 @@ export class OtpService {
     }
 
     const currentTimestamp = Date.now();
+    // TO DO: Eliminate created_at,expired_at. Tuanvo thinks it is redundant.
     result.created_at = currentTimestamp;
-    result.expired_at = currentTimestamp + validTimeForOTP; //miliseconds
+    result.expired_at = currentTimestamp + this.OTP_TTL_IN_MILLISECOND; // miliseconds
 
     return result;
   }
 
-  getCurrentOTP(phoneNumber: string): OtpType {
-    const currentOTP = this.otpBank.find(
-      (otp) => otp.phoneNumber == phoneNumber,
+  async updateOtpBank(otp: OtpType) {
+    const storedOTP = this.cacheManager.get(otp.phoneNumber);
+    if (storedOTP) {
+      await this.cacheManager.del(otp.phoneNumber);
+    }
+    await this.cacheManager.set(
+      otp.phoneNumber,
+      otp.otpCode,
+      this.OTP_TTL_IN_MILLISECOND,
     );
-    if (currentOTP) return currentOTP;
-    return null; //if not found
   }
-
-  updateOtpBank(otp: OtpType) {
-    if (this.getCurrentOTP(otp.phoneNumber) == null) {
-      this.otpBank.push(otp);
-      console.log('otpBank', this.otpBank);
-      return this.otpBank;
-    }
-    //udpate otpBank with new otp
-    for (let i = 0; i < this.otpBank.length; i++) {
-      if (this.otpBank[i].phoneNumber == otp.phoneNumber) {
-        this.otpBank[i] = otp;
-        break;
-      }
-    }
-    console.log('otpBank', this.otpBank);
-    return this.otpBank;
-  }
-  deleteOtpBankByPhoneNumber(phoneNumber: string) {
-    for (let i = 0; i < this.otpBank.length; i++) {
-      if (this.otpBank[i].phoneNumber == phoneNumber) {
-        this.otpBank.splice(i, 1);
-        break;
-      }
-    }
-    console.log('otpBank', this.otpBank);
-    return this.otpBank;
+  async deleteOtpBankByPhoneNumber(phoneNumber: string) {
+    await this.cacheManager.del(phoneNumber);
   }
 }

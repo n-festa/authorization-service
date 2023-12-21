@@ -9,6 +9,10 @@ import { OtpService } from './service/otp.service';
 import { CustomerService } from './service/customer.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Customer } from './entity/customer.entity';
+import { ConfigModule } from '@nestjs/config';
+
+import * as redisStore from 'cache-manager-redis-store';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
@@ -22,6 +26,16 @@ import { Customer } from './entity/customer.entity';
       entities: [Customer],
       synchronize: false,
       autoLoadEntities: true,
+    }),
+    ConfigModule.forRoot(),
+    CacheModule.register({
+      isGlobal: true,
+      useFactory: async () => ({
+        store: redisStore as any,
+        host: 'localhost',
+        port: 6379,
+        // ttl: 1000,
+      }),
     }),
     TypeOrmModule.forFeature([Customer]),
   ],

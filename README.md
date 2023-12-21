@@ -32,6 +32,40 @@
 $ yarn install
 ```
 
+### Install redis server on local (for testing)
+
+reference: https://collabnix.com/how-to-setup-and-run-redis-in-a-docker-container/
+
+Ensure that Docker is installed
+
+```
+docker -v
+```
+
+Create a dedicated Docker network (optional)
+
+```
+docker network create -d bridge redisnetx
+```
+
+Run Redis container
+
+```
+docker run -d -p 6379:6379 --name myredis --network redisnetx redis
+```
+
+Install redis-cli
+
+```
+brew install redis-cli
+```
+
+Enter into Redis-cli
+
+```
+redis-cli
+```
+
 ## Running the app
 
 ```bash
