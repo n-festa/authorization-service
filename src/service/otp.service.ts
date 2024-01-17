@@ -56,7 +56,8 @@ export class OtpService {
       // const response = await sendOTPSMS(phoneNumber, otpInfo.OTP);
       const response = otp;
       result.statusCode = 200;
-      result.message = response;
+      result.message = 'Request OTP successfully';
+      result.data = response;
       return result;
     } catch (error) {
       result.statusCode = 500;
@@ -95,7 +96,8 @@ export class OtpService {
       await this.tokenService.updateRefreshToken(user, tokenData.refresh_token);
 
       result.statusCode = 200;
-      result.message = tokenData;
+      result.message = 'Authenticate OTP successfully';
+      result.data = tokenData;
       return result;
     } catch (error) {
       console.log(error);
