@@ -10,7 +10,7 @@ import { CustomerService } from './service/customer.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Customer } from './entity/customer.entity';
 import { ConfigModule } from '@nestjs/config';
-import { redisStore } from 'cache-manager-redis-yet';
+// import { redisStore } from 'cache-manager-redis-yet';
 import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
@@ -30,8 +30,8 @@ import { CacheModule } from '@nestjs/cache-manager';
     CacheModule.registerAsync({
       isGlobal: true,
       useFactory: async () => ({
-        store: redisStore,
-        url: 'redis://localhost:6379',
+        // store: redisStore,
+        // url: 'redis://localhost:6379',
         // ttl: 1000,
       }),
     }),
