@@ -99,7 +99,8 @@ export class TokenService {
       this.updateRefreshToken(user, tokenData.refresh_token);
 
       result.statusCode = 200;
-      result.message = tokenData;
+      result.message = 'Refresh token successfully';
+      result.data = tokenData;
       return result;
     }
   }
