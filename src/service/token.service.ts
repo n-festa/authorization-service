@@ -66,7 +66,7 @@ export class TokenService {
   }
   public async refreshToken(user: any) {
     const { userId, refresh_token, userType } = user;
-    let result = new GeneralResponse(200, '');
+    const result = new GeneralResponse(200, '');
 
     if (userType == UserType.Customer) {
       const customer = await this.customerService.findOneById(userId);
