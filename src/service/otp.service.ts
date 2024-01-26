@@ -27,7 +27,8 @@ export class OtpService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
-  private readonly OTP_TTL_IN_MILLISECOND: number = 2 * 60 * 1000;
+  private readonly OTP_TTL_IN_MILLISECOND: number = 2 * 60 * 1000; //2 minutes
+
   async requestOTP(phoneNumber: string): Promise<GeneralResponse> {
     const result = new GeneralResponse(200, '');
 
@@ -35,6 +36,13 @@ export class OtpService {
       //TO DO: to define a good schema/pipeline that can handle and return result/error to the api gateway
       result.statusCode = 400;
       result.message = 'PhoneNumber is required';
+      return result;
+    }
+
+    // Validate phone format 84xxxxxxxxx with regular expression
+    if (this.validatePhoneNumberFormat(phoneNumber)) {
+      result.statusCode = 400;
+      result.message = 'Invalid phone number';
       return result;
     }
 
@@ -69,6 +77,13 @@ export class OtpService {
   async authenticateOTP(phoneNumber: string, inputOTP: string) {
     const result = new GeneralResponse(200, '');
     try {
+      // Validate phone format 84xxxxxxxxx with regular expression
+      if (this.validatePhoneNumberFormat(phoneNumber)) {
+        result.statusCode = 400;
+        result.message = 'Invalid phone number';
+        return result;
+      }
+
       const currentOTP = await this.cacheManager.get(phoneNumber);
 
       if (!currentOTP || currentOTP !== inputOTP) {
@@ -150,5 +165,10 @@ export class OtpService {
   }
   async deleteOtpBankByPhoneNumber(phoneNumber: string) {
     await this.cacheManager.del(phoneNumber);
+  }
+
+  validatePhoneNumberFormat(phone_number: string): boolean {
+    const phoneRegex = new RegExp(/^84\d{9}\d?$/);
+    return !phoneRegex.test(phone_number);
   }
 }
