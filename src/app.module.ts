@@ -12,6 +12,7 @@ import { Customer } from './entity/customer.entity';
 import { ConfigModule } from '@nestjs/config';
 // import { redisStore } from 'cache-manager-redis-yet';
 import { CacheModule } from '@nestjs/cache-manager';
+import { HttpModule } from '@nestjs/axios';
 
 @Module({
   imports: [
@@ -36,6 +37,10 @@ import { CacheModule } from '@nestjs/cache-manager';
       }),
     }),
     TypeOrmModule.forFeature([Customer]),
+    HttpModule,
+    ConfigModule.forRoot({
+      envFilePath: ['.env'],
+    }),
   ],
   controllers: [AppController, TokenController, OtpController],
   providers: [

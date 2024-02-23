@@ -13,12 +13,18 @@ import {
   JWT_SECRET_ACCESS_TOKEN,
   JWT_SECRET_REFRESH_TOKEN,
 } from 'src/app.constants';
+import { VerifyReCaptchaResponse } from 'src/dto/verify-recaptcha-response.dto';
+import { HttpService } from '@nestjs/axios';
+import { lastValueFrom } from 'rxjs';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class TokenService {
   constructor(
     private readonly jwtService: JwtService,
     private readonly customerService: CustomerService,
+    private readonly httpService: HttpService,
+    private readonly configService: ConfigService,
   ) {}
   public async createToken(user: GenericUser) {
     const data: JwtPayload = {
@@ -103,5 +109,18 @@ export class TokenService {
       result.data = tokenData;
       return result;
     }
+  }
+
+  async verifyReCaptchaFromEndPoint(
+    captcha_value: string,
+  ): Promise<VerifyReCaptchaResponse> {
+    const ggReCaptchaSecret = this.configService.get<string>(
+      'GG_RECAPTCHA_SECRET_KEY',
+    );
+    const request = this.httpService.post(
+      `https://www.google.com/recaptcha/api/siteverify?secret=${ggReCaptchaSecret}&response=${captcha_value}`,
+    );
+    const result = await lastValueFrom(request);
+    return result.data;
   }
 }
